@@ -21,7 +21,16 @@ pip install -e .
 
 ## Usage
 
-1. First, configure your search parameters in `config.yaml`:
+1. Get an OpenAI API key:
+   - Go to [OpenAI's website](https://platform.openai.com/api-keys)
+   - Create an account or sign in
+   - Generate a new API key
+   - Export the key in your terminal:
+     ```bash
+     export OPENAI_API_KEY='your-api-key-here'
+     ```
+
+2. Configure your search parameters in `config.yaml`:
    ```yaml
    # Number of relevant papers to retrieve from PubMed
    num_papers: 50
@@ -30,12 +39,12 @@ pip install -e .
    start_year: 2023
    ```
 
-2. Run the program:
+3. Run the program:
    ```bash
    python src/main.py
    ```
 
-3. When prompted, enter the name of the protein you want to search for.
+4. When prompted, enter the name of the protein you want to search for.
 
 The program will:
 - Search PubMed for papers about the specified protein
