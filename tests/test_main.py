@@ -3,7 +3,7 @@ Tests for the core functionality
 """
 
 import pytest
-from protsearch import __version__
+from src import __version__
 
 
 def test_version():

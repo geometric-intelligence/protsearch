@@ -9,6 +9,21 @@ import requests
 from Bio import Entrez
 import time
 import tiktoken
+import yaml
+from pathlib import Path
+
+def load_config():
+    """Load configuration from config.yaml file."""
+    try:
+        # Get the project root directory (parent of src)
+        project_root = Path(__file__).parent.parent
+        config_path = project_root / 'config.yaml'
+        
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        print(f"Error loading config file: {str(e)}. Using default values.")
+        return {"num_papers": 50, "start_year": 2023}  # Default values
 
 def setup_openai():
     """Initialize OpenAI client with API key from environment variables."""
@@ -32,15 +47,20 @@ def query_pubmed(protein_name: str) -> List[Dict]:
     List[Dict]
         List of dictionaries containing paper information
     """
+    # Load configuration
+    config = load_config()
+    num_papers = config.get('num_papers', 50)
+    start_year = config.get('start_year', 2023)
+    
     # Set your email for Entrez
     Entrez.email = "your.email@example.com"  # Replace with your email
     
     # Construct the search query
-    query = f"{protein_name} AND (neuroscience OR brain OR dementia OR neuropathology) AND (2020:3000[Date - Publication])"
+    query = f"{protein_name} AND (neuroscience OR brain OR dementia OR neuropathology) AND ({start_year}:3000[Date - Publication])"
     
     try:
         # Search PubMed
-        handle = Entrez.esearch(db="pubmed", term=query, retmax=50, sort="relevance")
+        handle = Entrez.esearch(db="pubmed", term=query, retmax=num_papers, sort="relevance")
         record = Entrez.read(handle)
         handle.close()
         
@@ -238,24 +258,24 @@ def summarize_papers_with_llm(papers: List[Dict], protein_name: str) -> str:
         print(f"Error querying OpenAI: {str(e)}")
         return ""
 
-def save_results_to_txt(summary: str, protein_name: str, queries_dir: str):
-    """Save the summary to a text file in the queries_llm directory."""
+def save_results_to_txt(summary: str, protein_name: str, results_dir: str):
+    """Save the summary to a text file in the results directory."""
     if not summary:
         return None
         
     date = datetime.now().strftime("%Y-%m-%d")
     filename = f"{protein_name}_summary_{date}.txt"
-    filepath = os.path.join(queries_dir, filename)
+    filepath = os.path.join(results_dir, filename)
     
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(summary)
     return filepath
 
-def ensure_queries_directory():
-    """Ensure the queries_llm directory exists."""
-    queries_dir = os.path.join(os.path.dirname(__file__), '..', 'queries_llm')
-    os.makedirs(queries_dir, exist_ok=True)
-    return queries_dir
+def ensure_results_directory():
+    """Ensure the results directory exists."""
+    results_dir = os.path.join(os.path.dirname(__file__), '..', 'results')
+    os.makedirs(results_dir, exist_ok=True)
+    return results_dir
 
 def main():
     """Main function to run the protein paper search."""
@@ -280,8 +300,8 @@ def main():
         summary = summarize_papers_with_llm(papers, protein_name)
         
         # Ensure queries directory exists and save results
-        queries_dir = ensure_queries_directory()
-        saved_file = save_results_to_txt(summary, protein_name, queries_dir)
+        results_dir = ensure_results_directory()
+        saved_file = save_results_to_txt(summary, protein_name, results_dir)
         
         # Display results
         if summary:

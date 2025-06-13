@@ -11,15 +11,13 @@ A Python package for protein search and analysis.
 git clone https://github.com/yourusername/protsearch.git
 cd protsearch
 
-# Create and activate the conda environment
-conda env create -f environment.yml
+# Create and activate a conda environment with Python 3.12
+conda create -n protsearch python=3.12
 conda activate protsearch
 
 # Install the package in development mode
 pip install -e .
 ```
-
-
 
 ## License
 
