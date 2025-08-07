@@ -1,0 +1,32 @@
+**Summary:**
+
+1. **Key Findings Related to ACE:**
+   - Angiotensin-converting enzyme (ACE) inhibitors are commonly prescribed medications for managing hypertension (PMID: 37284934).
+   - ACE inhibitors inhibit the conversion of angiotensin I to angiotensin II, leading to vasodilation, natriuresis, and decreased sympathetic activity, resulting in reduced blood pressure (PMID: 37284934).
+   - ACE inhibitors have been shown to have equal efficacy to angiotensin receptor blockers (ARBs) in treating hypertension, with improved tolerability for ARBs (PMID: 37284934).
+   - ACE inhibitors have been associated with protective effects in heart failure, chronic kidney disease, coronary artery disease, and myocardial infarction (PMID: 28613646).
+
+2. **Link of ACE to Diseases or Conditions:**
+   - ACE has been linked to hypertension, heart failure, chronic kidney disease, coronary artery disease, myocardial infarction, and sarcoidosis (PMID: 28613646; PMID: 37868968; PMID: 36819141; PMID: 38763333).
+   - In the context of cancer, ACE has been implicated in Clear-cell renal cell carcinoma (ccRCC), where its expression levels were associated with tumor growth and metastasis (PMID: 39717370).
+
+3. **Cellular/Molecular Mechanisms Involving ACE:**
+   - ACE is involved in the renin-angiotensin-aldosterone system (RAAS), where it converts angiotensin I to angiotensin II, regulating blood pressure and fluid balance (PMID: 37284934).
+   - ACE inhibitors disrupt the RAAS pathway, leading to vasodilation, reduced inflammation, and improved cardiovascular outcomes (PMID: 36819141).
+   - ACE also plays a role in modulating myeloid immune function, oxidative metabolism in macrophages, and mitochondrial oxidation of lipids (PMID: 38763333).
+
+4. **Therapeutic Implications:**
+   - ACE inhibitors are recommended for the management of hypertension, heart failure, and other cardiovascular conditions, with potential benefits in reducing inflammation and improving outcomes in ccRCC (PMID: 37284934; PMID: 39717370).
+   - Vitamin D has been suggested to enhance ACE-2 expression, counteracting the effects of SARS-CoV-2 by regulating the RAAS pathway, highlighting potential therapeutic implications in mitigating COVID-19 complications (PMID: 39452140).
+
+**References:**
+
+Dixon, DL. (2023). ACE-Inhibitors in Hypertension: A Historical Perspective and Current Insights. Current Hypertension Reports. https://doi.org/10.1007/s11906-023-01248-2
+
+Patel, P. (2025). ACE Inhibitors. https://doi.org/10.1186/s12916-024-03760-x
+
+Martinez-Selles, M. (2023). Angiotensin-Converting Enzyme and Heart Failure. Frontiers in Bioscience (Landmark Edition). https://doi.org/10.31083/j.fbl2807150
+
+Cao, W. (2024). ACE Loss Drives Renal Cell Carcinoma Growth and Invasion by Modulating AKT-FOXO1. Biologics: Targets & Therapy. https://doi.org/10.2147/BTT.S485178
+
+Wimalawansa, SJ. (2024). Unveiling the Interplay-Vitamin D and ACE-2 Molecular Interactions in Mitigating Complications and Deaths from SARS-CoV-2. Biology. https://doi.org/10.3390/biology13100831

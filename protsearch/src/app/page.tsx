@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PlusIcon, MinusIcon, BeakerIcon, DocumentTextIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
+import Cookies from 'js-cookie';
 
 export default function HomePage() {
   const router = useRouter();
@@ -13,10 +14,48 @@ export default function HomePage() {
     { term: "", operator: null }
   ]);
   const [question, setQuestion] = useState("");
+  const [rememberKey, setRememberKey] = useState(true);
   
   // API interaction state variables
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Load API key from cookie on component mount
+  useEffect(() => {
+    const savedApiKey = Cookies.get('protsearch_api_key');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
+  }, []);
+  
+  // Handle API key changes
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setApiKey(newValue);
+    
+    // Save to cookie if remember option is enabled
+    if (rememberKey) {
+      if (newValue) {
+        Cookies.set('protsearch_api_key', newValue, { expires: 30, secure: true, sameSite: 'strict' });
+      } else {
+        Cookies.remove('protsearch_api_key');
+      }
+    }
+  };
+  
+  // Toggle remember option
+  const toggleRememberKey = () => {
+    const newValue = !rememberKey;
+    setRememberKey(newValue);
+    
+    if (!newValue) {
+      // If turning off remember, remove the cookie
+      Cookies.remove('protsearch_api_key');
+    } else if (apiKey) {
+      // If turning on remember and we have a key, save it
+      Cookies.set('protsearch_api_key', apiKey, { expires: 30, secure: true, sameSite: 'strict' });
+    }
+  };
   
   // Add a new search term field
   const addSearchTerm = () => {
@@ -259,9 +298,22 @@ export default function HomePage() {
                   type="password"
                   id="apiKey"
                   value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  onChange={handleApiKeyChange}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
+                {/* Add remember checkbox */}
+                <div className="mt-2 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="rememberKey"
+                    checked={rememberKey}
+                    onChange={toggleRememberKey}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="rememberKey" className="ml-2 block text-sm text-gray-700">
+                    Remember API key (stored securely in your browser)
+                  </label>
+                </div>
               </div>
             </div>
             
@@ -297,7 +349,7 @@ export default function HomePage() {
                     placeholder="e.g. ACE, APP, BACE1 (comma separated)"
                   />
                   
-                  {/* Toggle for search mode - Fixed version */}
+                  {/* Toggle for search mode */}
                   <div className="flex items-center mt-3 bg-gray-50 p-3 rounded-lg">
                     <label className="toggle-switch mr-3">
                       <input
