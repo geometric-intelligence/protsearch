@@ -16,11 +16,21 @@ interface Paper {
   url: string;
 }
 
-interface ResultsData {
-  success: boolean;
+interface SingleResult {
+  protein: string;
   papers: Paper[];
   summary: string;
   saved_file: string | null;
+}
+
+interface ResultsData {
+  success: boolean;
+  mode: "together" | "separate";
+  proteins?: string[];
+  papers?: Paper[];
+  summary?: string;
+  saved_file?: string | null;
+  results?: SingleResult[];
 }
 
 export default function ResultsPage() {
@@ -32,6 +42,7 @@ export default function ResultsPage() {
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'summary' | 'papers'>('summary');
   const [expandedAbstracts, setExpandedAbstracts] = useState<Record<number, boolean>>({});
+  const [activeProteinIndex, setActiveProteinIndex] = useState(0);
   
   useEffect(() => {
     const resultsJson = localStorage.getItem('protsearch_results');
@@ -66,49 +77,88 @@ export default function ResultsPage() {
     }));
   };
   
-  // Convert PubMed IDs and DOIs in text to hyperlinks
-  const processTextWithLinks = (text: string) => {
-    if (!text) return [];
 
-    // Split by paragraphs first to preserve formatting
-    const paragraphs = text.split('\n\n');
+const processTextWithLinks = (text: string) => {
+  if (!text) return [];
 
-    return paragraphs.map((paragraph, paragraphIndex) => {
-      // Process each paragraph for DOIs and PMIDs
-      let processedParagraph = paragraph;
-      
-      // Replace DOIs with hyperlinks
-      processedParagraph = processedParagraph.replace(
-        /(https?:\/\/doi\.org\/[0-9a-zA-Z.\/\-_]+)/g, 
-        '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
-      );
-      
-      // Replace PubMed URLs with hyperlinks
-      processedParagraph = processedParagraph.replace(
-        /(https?:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/[0-9]+\/)/g,
-        '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
-      );
-      
-      // Handle PMID mentions
-      processedParagraph = processedParagraph.replace(
-        /PMID:\s*(\d+)/g,
-        'PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/$1/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
-      );
+  // Split by paragraphs first to preserve formatting
+  const paragraphs = text.split('\n\n');
 
-      // Add HTML line breaks instead of using React elements
-      const htmlWithLineBreaks = processedParagraph
-        .split('\n')
-        .join('<br />');
+  return paragraphs.map((paragraph, paragraphIndex) => {
+    // Process each paragraph for DOIs and PMIDs
+    let processedParagraph = paragraph;
+    
+    // Replace DOIs with hyperlinks
+    processedParagraph = processedParagraph.replace(
+      /(https?:\/\/doi\.org\/[0-9a-zA-Z.\/\-_]+)/g, 
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+    );
+    
+    // Replace PubMed URLs with hyperlinks
+    processedParagraph = processedParagraph.replace(
+      /(https?:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/[0-9]+\/)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+    );
+    
+    // Handle PMID mentions
+    processedParagraph = processedParagraph.replace(
+      /PMID:\s*(\d+)/g,
+      'PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/$1/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+    );
+    
+    // Handle bold text surrounded by **{text}**
+    processedParagraph = processedParagraph.replace(
+  /\*\*([^\*]+)\*\*/g,
+  '<strong>$1</strong>'
+);
 
-      // Return the paragraph with links and HTML line breaks
-      return (
-        <p 
-          key={paragraphIndex} 
-          className="mb-4" 
-          dangerouslySetInnerHTML={{ __html: htmlWithLineBreaks }} 
-        />
-      );
-    });
+    // AFTER all formatting is done, add HTML line breaks
+    const htmlWithLineBreaks = processedParagraph
+      .split('\n')
+      .join('<br />');
+
+    // Return the paragraph with all formatting applied
+    return (
+      <p 
+        key={paragraphIndex} 
+        className="mb-4" 
+        dangerouslySetInnerHTML={{ __html: htmlWithLineBreaks }} 
+      />
+    );
+  });
+};
+  
+  // Get the current active protein result (for separate mode)
+  const getCurrentProteinResult = () => {
+    if (!results || results.mode !== 'separate' || !results.results) {
+      return null;
+    }
+    
+    return results.results[activeProteinIndex] || null;
+  };
+  
+  // Get the papers to display based on mode
+  const getPapersToDisplay = () => {
+    if (!results) return [];
+    
+    if (results.mode === 'together') {
+      return results.papers || [];
+    } else {
+      const currentResult = getCurrentProteinResult();
+      return currentResult ? currentResult.papers : [];
+    }
+  };
+  
+  // Get the summary to display based on mode
+  const getSummaryToDisplay = () => {
+    if (!results) return "";
+    
+    if (results.mode === 'together') {
+      return results.summary || "";
+    } else {
+      const currentResult = getCurrentProteinResult();
+      return currentResult ? currentResult.summary : "";
+    }
   };
   
   if (loading) {
@@ -148,6 +198,10 @@ export default function ResultsPage() {
     );
   }
   
+  // Get current papers and summary
+  const papers = getPapersToDisplay();
+  const summary = getSummaryToDisplay();
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
       <header className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md">
@@ -159,16 +213,39 @@ export default function ResultsPage() {
                 textShadow: `-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000`
               }}>ProtSearch</h1>
             </div>
-            <span className="text-sm opacity-75">Research Results</span>
+            <span className="text-sm opacity-75">
+              {results.mode === 'separate' && getCurrentProteinResult() 
+                ? `Results for ${getCurrentProteinResult()?.protein}`
+                : 'Research Results'}
+            </span>
           </div>
         </div>
       </header>
       
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <Link href="/" className="btn-glow inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white">
+        <div className="mb-6 flex flex-wrap items-center justify-between">
+          <Link href="/" className="btn-glow inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white mb-2">
             <ArrowLeftIcon className="h-5 w-5 mr-2" /> Back to Search
           </Link>
+          
+          {/* Protein selector tabs for separate mode */}
+          {results.mode === 'separate' && results.results && results.results.length > 0 && (
+            <div className="flex overflow-x-auto whitespace-nowrap mb-4 pb-2 w-full md:w-auto">
+              {results.results.map((result, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveProteinIndex(index)}
+                  className={`px-4 py-2 mx-1 text-sm font-medium rounded-lg ${
+                    index === activeProteinIndex
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  {result.protein} ({result.papers.length})
+                </button>
+              ))}
+            </div>
+          )}
           
           <div className="inline-flex rounded-lg shadow-sm">
             <button
@@ -189,7 +266,7 @@ export default function ResultsPage() {
                   : 'bg-white text-gray-700'
               } border border-gray-300 rounded-r-lg hover:bg-gray-50`}
             >
-              Papers ({results.papers.length})
+              Papers ({papers.length})
             </button>
           </div>
         </div>
@@ -199,7 +276,7 @@ export default function ResultsPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">AI Research Summary</h2>
               <button
-                onClick={() => copyToClipboard(results.summary, 'summary')}
+                onClick={() => copyToClipboard(summary, 'summary')}
                 className="btn-glow inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white"
               >
                 <ClipboardIcon className="h-4 w-4 mr-1" />
@@ -208,83 +285,91 @@ export default function ResultsPage() {
             </div>
             
             <div className="prose prose-indigo max-w-none">
-              {processTextWithLinks(results.summary)}
+              {processTextWithLinks(summary)}
             </div>
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Found Papers</h2>
-            <div className="space-y-6">
-              {results.papers.map((paper, index) => (
-                <div key={index} className="border-b pb-4 last:border-0">
-                  <h3 className="font-medium text-lg text-gray-900 mb-1">{paper.title}</h3>
-                  <p className="text-sm text-gray-600 mb-2">{paper.authors}</p>
-                  <div className="flex items-center text-xs text-gray-500 mb-3 space-x-3">
-                    <span>{paper.journal}</span>
-                    <span>•</span>
-                    <span>{paper.year}</span>
-                    {paper.doi && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          DOI: <a 
-                            href={`https://doi.org/${paper.doi}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            {paper.doi}
-                          </a>
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  
-                  {/* Abstract with expand/collapse toggle */}
-                  <div className="mb-3">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-medium text-gray-500">Abstract</span>
-                      <button 
-                        onClick={() => toggleAbstract(index)} 
-                        className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center"
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Found Papers {results.mode === 'separate' && getCurrentProteinResult()
+                ? `for ${getCurrentProteinResult()?.protein}`
+                : ''}
+            </h2>
+            {papers.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No papers found matching your search criteria.</p>
+            ) : (
+              <div className="space-y-6">
+                {papers.map((paper, index) => (
+                  <div key={index} className="border-b pb-4 last:border-0">
+                    <h3 className="font-medium text-lg text-gray-900 mb-1">{paper.title}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{paper.authors}</p>
+                    <div className="flex items-center text-xs text-gray-500 mb-3 space-x-3">
+                      <span>{paper.journal}</span>
+                      <span>•</span>
+                      <span>{paper.year}</span>
+                      {paper.doi && (
+                        <>
+                          <span>•</span>
+                          <span>
+                            DOI: <a 
+                              href={`https://doi.org/${paper.doi}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {paper.doi}
+                            </a>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* Abstract with expand/collapse toggle */}
+                    <div className="mb-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-medium text-gray-500">Abstract</span>
+                        <button 
+                          onClick={() => toggleAbstract(index)} 
+                          className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center"
+                        >
+                          {expandedAbstracts[index] ? (
+                            <>
+                              <ChevronUpIcon className="h-3 w-3 mr-1" /> Show Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDownIcon className="h-3 w-3 mr-1" /> Show More
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className={`text-sm text-gray-700 ${expandedAbstracts[index] ? '' : 'line-clamp-3'}`}>
+                        {paper.abstract}
+                      </p>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <a 
+                        href={paper.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-glow inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white"
                       >
-                        {expandedAbstracts[index] ? (
-                          <>
-                            <ChevronUpIcon className="h-3 w-3 mr-1" /> Show Less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDownIcon className="h-3 w-3 mr-1" /> Show More
-                          </>
-                        )}
+                        <ArrowTopRightOnSquareIcon className="h-3 w-3 mr-1" />
+                        PubMed
+                      </a>
+                      <button
+                        onClick={() => copyToClipboard(paper.abstract, `abstract-${index}`)}
+                        className="btn-glow inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white"
+                      >
+                        <ClipboardIcon className="h-3 w-3 mr-1" />
+                        {copiedText === `abstract-${index}` ? 'Copied!' : 'Copy Abstract'}
                       </button>
                     </div>
-                    <p className={`text-sm text-gray-700 ${expandedAbstracts[index] ? '' : 'line-clamp-3'}`}>
-                      {paper.abstract}
-                    </p>
                   </div>
-                  
-                  <div className="flex space-x-2">
-                    <a 
-                      href={paper.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-glow inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white"
-                    >
-                      <ArrowTopRightOnSquareIcon className="h-3 w-3 mr-1" />
-                      PubMed
-                    </a>
-                    <button
-                      onClick={() => copyToClipboard(paper.abstract, `abstract-${index}`)}
-                      className="btn-glow inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white"
-                    >
-                      <ClipboardIcon className="h-3 w-3 mr-1" />
-                      {copiedText === `abstract-${index}` ? 'Copied!' : 'Copy Abstract'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

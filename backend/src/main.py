@@ -429,7 +429,8 @@ def summarize_papers_with_llm(papers: List[Dict], protein_names: List[str], cust
         print(f"Error querying OpenAI: {str(e)}")
         return ""
 
-# API endpoint
+# Update the search_endpoint function
+
 @app.route('/api/search', methods=['POST'])
 def search_endpoint():
     try:
@@ -463,45 +464,98 @@ def search_endpoint():
         # Extract custom question
         question = data.get('question', '')
         
-        # Query PubMed for papers
-        papers = query_pubmed(protein_names, search_together, search_terms)
-        
-        if not papers:
+        # If we're searching together, do a single search
+        if search_together:
+            # Query PubMed for papers
+            papers = query_pubmed(protein_names, search_together, search_terms)
+            
+            if not papers:
+                return jsonify({
+                    "success": True,
+                    "mode": "together",
+                    "proteins": protein_names,
+                    "papers": [],
+                    "summary": "No papers found matching your search criteria."
+                })
+                
+            # Summarize papers using LLM
+            summary = summarize_papers_with_llm(papers, protein_names, question)
+            
+            # Ensure results directory exists and save results
+            results_dir = ensure_results_directory()
+            protein_string = "_".join(protein_names)
+            saved_file = save_results_to_txt(summary, protein_string, results_dir)
+            
+            # Format papers for response
+            papers_for_response = []
+            for paper in papers:
+                papers_for_response.append({
+                    "pmid": paper.get("PMID", ""),
+                    "title": paper.get("Title", ""),
+                    "authors": paper.get("Authors", ""),
+                    "journal": paper.get("Journal", ""),
+                    "year": paper.get("Year", ""),
+                    "abstract": paper.get("Abstract", ""),
+                    "doi": paper.get("DOI", ""),
+                    "url": f"https://pubmed.ncbi.nlm.nih.gov/{paper.get('PMID', '')}/",
+                })
+                
+            # Return results
             return jsonify({
                 "success": True,
-                "papers": [],
-                "summary": "No papers found matching your search criteria."
+                "mode": "together",
+                "proteins": protein_names,
+                "papers": papers_for_response,
+                "summary": summary,
+                "saved_file": saved_file if saved_file else None
             })
+        
+        # If we're searching separately (OR mode), do a search for each protein
+        else:
+            all_results = []
             
-        # Summarize papers using LLM
-        summary = summarize_papers_with_llm(papers, protein_names, question)
-        
-        # Ensure results directory exists and save results
-        results_dir = ensure_results_directory()
-        protein_string = "_".join(protein_names)
-        saved_file = save_results_to_txt(summary, protein_string, results_dir)
-        
-        # Format papers for response
-        papers_for_response = []
-        for paper in papers:
-            papers_for_response.append({
-                "pmid": paper.get("PMID", ""),
-                "title": paper.get("Title", ""),
-                "authors": paper.get("Authors", ""),
-                "journal": paper.get("Journal", ""),
-                "year": paper.get("Year", ""),
-                "abstract": paper.get("Abstract", ""),
-                "doi": paper.get("DOI", ""),
-                "url": f"https://pubmed.ncbi.nlm.nih.gov/{paper.get('PMID', '')}/",
+            for protein in protein_names:
+                # Query PubMed for papers about this protein
+                papers = query_pubmed([protein], True, search_terms)
+                
+                protein_summary = ""
+                saved_file = None
+                
+                if papers:
+                    # Summarize papers using LLM
+                    protein_summary = summarize_papers_with_llm(papers, [protein], question)
+                    
+                    # Save results
+                    results_dir = ensure_results_directory()
+                    saved_file = save_results_to_txt(protein_summary, protein, results_dir)
+                
+                # Format papers for response
+                papers_for_response = []
+                for paper in papers:
+                    papers_for_response.append({
+                        "pmid": paper.get("PMID", ""),
+                        "title": paper.get("Title", ""),
+                        "authors": paper.get("Authors", ""),
+                        "journal": paper.get("Journal", ""),
+                        "year": paper.get("Year", ""),
+                        "abstract": paper.get("Abstract", ""),
+                        "doi": paper.get("DOI", ""),
+                        "url": f"https://pubmed.ncbi.nlm.nih.gov/{paper.get('PMID', '')}/",
+                    })
+                
+                all_results.append({
+                    "protein": protein,
+                    "papers": papers_for_response,
+                    "summary": protein_summary if papers else f"No papers found for {protein}.",
+                    "saved_file": saved_file
+                })
+            
+            # Return all results
+            return jsonify({
+                "success": True,
+                "mode": "separate",
+                "results": all_results
             })
-            
-        # Return results
-        return jsonify({
-            "success": True,
-            "papers": papers_for_response,
-            "summary": summary,
-            "saved_file": saved_file if saved_file else None
-        })
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
