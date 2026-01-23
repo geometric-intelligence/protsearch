@@ -1,0 +1,15 @@
+pip>=23.0
+setuptools>=65.0
+wheel>=0.38.0
+Flask==2.3.3
+flask-cors==4.0.0
+gunicorn==21.2.0
+python-dotenv==1.0.0
+pandas==2.0.3
+tiktoken==0.5.1
+PyYAML==6.0.1
+thefuzz==0.22.1
+requests==2.31.0
+pathlib2==2.3.7
+openai>=1.0.0
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl

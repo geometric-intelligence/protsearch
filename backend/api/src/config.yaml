@@ -1,7 +1,7 @@
 # PubMed search configuration
 
 # Number of relevant papers to retrieve from PubMed
-num_papers: 20
+num_papers: 25
 
 # Year to start searching from in PubMed (e.g., 2023 means papers from 2023 onwards)
-start_year: 2023 
+start_year: 1900

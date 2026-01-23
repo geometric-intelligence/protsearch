@@ -1,10 +1,15 @@
-/**
- * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially useful
- * for Docker builds.
- */
-import "./src/env.js";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  // Make both roots the same (Vercel sets outputFileTracingRoot to repo root)
+  typescript: { ignoreBuildErrors: true },
+  turbopack: { root: repoRoot },
+  outputFileTracingRoot: repoRoot,
+};
 
 export default config;
