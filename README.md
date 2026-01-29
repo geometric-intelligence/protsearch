@@ -243,10 +243,6 @@ API keys can be provided:
 2. As environment variables in the backend
 3. Per-request in API calls
 
-## License
-
-MIT
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
