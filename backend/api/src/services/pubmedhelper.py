@@ -295,7 +295,7 @@ def iterate_pubmed(protein_names: List[str], search_together: bool, additional_t
         yield {"type": "meta", "count": hit_count}
         
         if hit_count == 0:
-            return
+            return 
         
         # Parse first page
         result_list = root.find("resultList")
