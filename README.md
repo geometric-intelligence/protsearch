@@ -1,6 +1,6 @@
 # ProtSearch
 
-**ProtSearch** is a full-stack web application that helps researchers discover and summarize scientific literature about proteins. It searches PubMed for relevant papers, validates protein names, and generates AI-powered summaries of the research findings.
+**ProtSearch** is a full-stack web application that helps researchers discover and summarize scientific literature about proteins. It searches EuropePMC for relevant papers, validates protein names, and generates AI-powered summaries of the research findings.
 
 ## Features
 
@@ -25,7 +25,7 @@
 - **Framework**: Flask (Python)
 - **API**: RESTful API with Server-Sent Events for streaming
 - **Services**: 
-  - PubMed integration for paper search
+  - EuropePMC integration for paper search
   - Gene alias validation
   - OpenAI/Gemini integration for AI summaries
   - UniProt integration
