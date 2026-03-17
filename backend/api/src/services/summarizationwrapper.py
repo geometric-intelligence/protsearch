@@ -328,7 +328,7 @@ Start with the General Overview section using UniProt information, then proceed 
     
     # Use Google/Gemma models if no OpenAI key or OpenAI failed
     # Default Google API key (fallback if not set in environment)
-    DEFAULT_GOOGLE_API_KEY = "AIzaSyAtbBvgeOx5_ndbbCbIkhWJT4yYZpmJ9_M"
+    #deleted api key
     google_key = os.environ.get("GOOGLE_API_KEY", DEFAULT_GOOGLE_API_KEY).strip() # type: ignore
     print(f"[DEBUG] summarize_papers_with_llm: Google key check - present: {bool(google_key)}, length: {len(google_key) if google_key else 0}")
     if google_key:
