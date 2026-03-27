@@ -1,8 +1,4 @@
 {
-  "framework": "nextjs",
-  "functions": {
-    "protsearch/src/app/**/*.tsx": {
-      "runtime": "nodejs22.x"
+  "framework": "nextjs"
+
     }
-  }
-}
