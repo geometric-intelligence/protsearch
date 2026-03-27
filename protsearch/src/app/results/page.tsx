@@ -54,7 +54,7 @@ const normalizePaper = (raw: any): Paper => {
   };
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://protsearch-api-312141936151.us-central1.run.app";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://protsearch-backend-312141936151.us-central1.run.app";
 
 const PaperList = ({ papers, expandedAbstracts, toggleAbstract, copyToClipboard, copiedText }: {
   papers: Paper[];

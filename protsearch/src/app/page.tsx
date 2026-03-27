@@ -29,7 +29,7 @@ export default function HomePage() {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   // API base URL - use the same as search_start endpoint
-  const API_BASE_URL = 'https://protsearch-api-312141936151.us-central1.run.app';
+  const API_BASE_URL = 'https://protsearch-backend-312141936151.us-central1.run.app';
 
   // Load API key from cookie on component mount
   useEffect(() => {
