@@ -1,6 +1,99 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --color-brand: #4a6b75;
+  --color-brand-hover: #3d5a63;
+  --color-brand-muted: #f1f5f6;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-muted: #64748b;
+  --color-page: #f8fafc;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: #334155;
+  -webkit-font-smoothing: antialiased;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out forwards;
+}
+
+.animate-fade-up-delay-1 {
+  animation: fade-up 0.4s ease-out 0.05s forwards;
+  opacity: 0;
+}
+
+.animate-fade-up-delay-2 {
+  animation: fade-up 0.4s ease-out 0.1s forwards;
+  opacity: 0;
+}
+
+.animate-fade-up-delay-3 {
+  animation: fade-up 0.4s ease-out 0.15s forwards;
+  opacity: 0;
+}
+
+.card-hover {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.card-hover:hover {
+  border-color: color-mix(in srgb, var(--color-brand) 20%, var(--color-border));
+  box-shadow: 0 4px 16px -6px rgba(15, 23, 42, 0.08);
+}
+
+.summary-content strong {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.summary-content em {
+  font-style: italic;
+}
+
+.summary-ref-list li::marker {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.btn-submit {
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background-color: var(--color-brand-hover);
+}
+
+.btn-submit:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.tab-panel-enter {
+  animation: fade-up 0.25s ease-out forwards;
 }

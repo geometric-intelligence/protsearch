@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 from datetime import datetime
 from services.llmhelper import setup_openai, generate_with_gemini_rest, count_tokens
@@ -25,6 +25,140 @@ def save_results_to_txt(text: str, protein_name: str, results_dir: Path) -> Opti
     except Exception as e:
         log.warning(f"Error saving results: {e}")
         return None
+
+
+def _join_papers_text(papers: List[Dict]) -> str:
+    return "\n\n".join(
+        [
+            f"PMID: {p.get('PMID','')}\nTitle: {p.get('Title','')}\nAuthors: {p.get('Authors','')}\n"
+            f"Journal: {p.get('Journal','')}\nYear: {p.get('Year','')}\n"
+            + (f"Full Text: {p.get('FullText','')}" if p.get("FullText") else f"Abstract: {p.get('Abstract','')}")
+            + f"\nDOI: {p.get('DOI','')}"
+            for p in papers
+        ]
+    )
+
+
+def _summarization_prompt_tail(proteins_text: str, custom_question: str) -> str:
+    tail = f"""=== SUMMARY STRUCTURE ===
+Your summary MUST use GitHub-flavored Markdown and follow this structure exactly:
+
+# {proteins_text}: Research Summary
+
+## General Overview
+Write 1-2 short paragraphs describing the general biological function and role of {proteins_text} using ONLY the UniProt background data above. End this section with a single citation: (UniProt: https://www.uniprot.org). Do NOT repeat the UniProt citation elsewhere.
+
+## Key Findings
+List the key research findings related to {proteins_text} as bullet points (one finding per bullet).
+
+## Disease Associations
+List diseases or conditions linked to {proteins_text} as bullet points. If none are reported, write one bullet stating that.
+
+## Mechanisms
+List cellular or molecular mechanisms involving {proteins_text} as bullet points.
+
+## Therapeutic Implications
+List therapeutic implications mentioned in the papers as bullet points. If none are reported, write one bullet stating that.
+"""
+    if custom_question:
+        tail += f"""
+## User Question
+Address this question from the user as bullet point(s):
+{custom_question}
+"""
+    tail += """
+=== CRITICAL CITATION RULES ===
+- General Overview: use UniProt information only; cite UniProt once at the end of that section
+- All other sections: cite only the specific paper(s) that support each bullet
+- In-text citations: (PMID: 12345678) or (PMID: 12345678, 87654321) at the end of the relevant sentence
+- End with a ## References section listing every cited paper in APA format, one reference per numbered line
+- Each reference MUST include the DOI URL when available
+- Reference format: Author(s). (Year). Title. *Journal*, Volume(Issue), Pages. https://doi.org/DOI
+- Only include information explicitly stated in the papers or UniProt background
+
+=== OUTPUT FORMAT (Markdown) ===
+Follow these formatting rules strictly:
+- Use # for the title, ## for each section heading, each on its own line
+- Under every section except General Overview, use "- " bullet points (one finding per bullet)
+- Start each bullet with a short topic label in bold, then the explanation. Example:
+  - **COVID-19 severity:** Variants in ACE1 and ACE2 are associated with disease outcomes (PMID: 40150043).
+- Use normal (non-italic) body text; do NOT italicize whole paragraphs or sections
+- Bold a protein or gene name only on its first mention within each bullet or paragraph
+- Do NOT use ***bold-italic*** or mixed heading styles; use only ## headings and **bold** topic labels
+- Do NOT use inline section headers like "**Topic:**" without a bullet; always use bullet lists under ## sections
+- Separate sections with a blank line
+- In References, use a numbered list (1., 2., 3., ...) with one full APA citation per line
+"""
+    return tail
+
+
+def build_summarization_prompt(
+    papers: List[Dict],
+    protein_names: List[str],
+    custom_question: str = "",
+    uniprot_functions: str = "",
+    evaluator_notes: str = "",
+    max_tokens: int = 120000,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Build the same user prompt string sent to OpenAI/Gemini as in summarize_papers_with_llm.
+    evaluator_notes: optional block === EVALUATOR NOTES === (for offline / manual evaluation).
+    """
+    if not papers:
+        return "", {
+            "paper_count": 0,
+            "papers_in_prompt": 0,
+            "estimated_tokens": 0,
+            "prompt_chars": 0,
+        }
+    proteins_text = ", ".join(protein_names)
+    if uniprot_functions:
+        log.info(
+            "build_summarization_prompt: Including UniProt function data (%s chars)",
+            len(uniprot_functions),
+        )
+        background_block = f"""
+=== BACKGROUND CONTEXT (UniProt Database) ===
+The following is general protein function information from UniProt database:
+{uniprot_functions}
+
+IMPORTANT: Use this UniProt information only for the ## General Overview section at the beginning of your summary.
+Cite UniProt once at the end of that section as: (UniProt: https://www.uniprot.org)
+
+=== RESEARCH PAPERS TO ANALYZE ===
+"""
+    else:
+        log.warning("build_summarization_prompt: No UniProt function data for %s", protein_names)
+        background_block = "=== RESEARCH PAPERS TO ANALYZE ===\n"
+
+    intro = f"""You are a research assistant specialized in neuroscience.
+Analyze the research papers below about {proteins_text} and create a comprehensive summary.
+
+"""
+    if evaluator_notes.strip():
+        glue_fmt = f"\n\n=== EVALUATOR NOTES ===\n{evaluator_notes.strip()}\n\n"
+    else:
+        glue_fmt = "\n\n"
+    tail = _summarization_prompt_tail(proteins_text, custom_question)
+
+    papers_copy = list(papers)
+    while True:
+        papers_text = _join_papers_text(papers_copy)
+        prompt = intro + background_block + papers_text + glue_fmt + tail
+        total_tokens = count_tokens(prompt)
+        if total_tokens <= max_tokens or len(papers_copy) <= 1:
+            break
+        papers_copy = papers_copy[:-1]
+
+    return prompt, {
+        "paper_count": len(papers),
+        "papers_in_prompt": len(papers_copy),
+        "estimated_tokens": total_tokens,
+        "prompt_chars": len(prompt),
+        "papers_text_chars": len(papers_text),
+        "trimmed": len(papers_copy) < len(papers),
+    }
+
 
 def summarize_papers_with_llm(papers: List[Dict], protein_names: List[str], custom_question: str = "", uniprot_functions: str = "") -> str:
     import sys
@@ -88,123 +222,26 @@ def summarize_papers_with_llm(papers: List[Dict], protein_names: List[str], cust
         print(f"[DEBUG]   - Content length: {len(first_paper_content):,} characters", flush=True)
         print(f"[DEBUG]   - Content preview (first 500 chars): {first_paper_content_preview}...", flush=True)
         sys.stdout.flush()
-    background_block = ""
-    if uniprot_functions:
-        log.info(f"summarize_papers_with_llm: Including UniProt function data in prompt ({len(uniprot_functions)} chars)")
-        background_block = f"""
-=== BACKGROUND CONTEXT (UniProt Database) ===
-The following is general protein function information from UniProt database:
-{uniprot_functions}
+    prompt, prompt_meta = build_summarization_prompt(
+        papers, protein_names, custom_question, uniprot_functions, evaluator_notes=""
+    )
+    total_tokens = prompt_meta["estimated_tokens"]
+    papers_text_chars = prompt_meta["papers_text_chars"]
 
-IMPORTANT: Use this UniProt information to write a general overview/introduction section at the BEGINNING of your summary. 
-This overview should describe the general function and role of {proteins_text} based on UniProt data.
-If you cite this information, cite it as: (UniProt: https://www.uniprot.org)
-
-=== RESEARCH PAPERS TO ANALYZE ===
-"""
-    else:
-        log.warning(f"summarize_papers_with_llm: No UniProt function data provided for {protein_names}")
-        background_block = "=== RESEARCH PAPERS TO ANALYZE ===\n"
-    
-    prompt = f"""You are a research assistant specialized in neuroscience.
-Analyze the research papers below about {proteins_text} and create a comprehensive summary.
-
-{background_block}{papers_text}
-
-=== SUMMARY STRUCTURE ===
-Your summary MUST follow this structure:
-
-1. **General Overview** (use UniProt information): Start with a brief overview of {proteins_text} based on the UniProt function data provided above. This should be 1-2 paragraphs describing the general biological function and role of the protein(s). Cite as (UniProt: https://www.uniprot.org) if referencing this information.
-
-2. **Key Findings** (from papers): What are the key research findings related to {proteins_text}? Cite specific papers using (PMID: xxxxxxxx).
-
-3. **Disease Associations** (from papers): Has {proteins_text} been linked to any diseases or conditions? If yes, which ones? Cite specific papers.
-
-4. **Mechanisms** (from papers): What cellular/molecular mechanisms involve {proteins_text}? Cite specific papers.
-
-5. **Therapeutic Implications** (from papers): Are there any therapeutic implications mentioned? Cite specific papers.
-"""
-    if custom_question:
-        prompt += f"\n6. **User Question**: Additionally, address this question from the user:\n{custom_question}\nCite specific papers.\n"
-    prompt += """
-=== CRITICAL CITATION RULES ===
-- For the General Overview section: Use UniProt information and cite as (UniProt: https://www.uniprot.org)
-- For all other sections: ONLY cite papers for information that comes from those papers
-- For each finding, mechanism, disease link, or therapeutic implication from papers, cite the specific paper(s) using the PMID
-- Format citations in-text as: (PMID: 12345678) or (PMID: 12345678, 87654321)
-- At the end, provide a References section with all cited papers in APA format
-- Each reference MUST include the DOI if available
-- Format references as: Author(s). (Year). Title. Journal, Volume(Issue), Pages. https://doi.org/DOI
-- Only include information that is explicitly stated in the papers
-- Use proper scientific terminology
-- Use bold formatting for important terms by surrounding them with ** (e.g. **NPTX1**)
-
-=== OUTPUT FORMAT ===
-Format the response as a well-structured text with clear sections, paragraphs, and a References section at the end.
-Start with the General Overview section using UniProt information, then proceed with findings from the papers.
-"""
-    total_tokens = count_tokens(prompt)
-    max_tokens = 120000
-    
     # Log final prompt statistics
     print(f"[DEBUG] summarize_papers_with_llm: Final prompt statistics:", flush=True)
     print(f"[DEBUG]   - Total prompt length: {len(prompt):,} characters", flush=True)
     print(f"[DEBUG]   - Total tokens (estimated): {total_tokens:,}", flush=True)
-    print(f"[DEBUG]   - Papers text portion: {len(papers_text):,} characters", flush=True)
-    print(f"[DEBUG]   - Background/instructions: {len(prompt) - len(papers_text):,} characters", flush=True)
-    
+    print(f"[DEBUG]   - Papers text portion: {papers_text_chars:,} characters", flush=True)
+    print(f"[DEBUG]   - Background/instructions: {len(prompt) - papers_text_chars:,} characters", flush=True)
+
     # Optionally log a sample of the prompt (first 2000 chars and last 500 chars)
     print(f"[DEBUG] summarize_papers_with_llm: Prompt preview (first 2000 chars):", flush=True)
     print(f"[DEBUG] {prompt[:2000]}...", flush=True)
     print(f"[DEBUG] summarize_papers_with_llm: Prompt preview (last 500 chars):", flush=True)
     print(f"[DEBUG] ...{prompt[-500:]}", flush=True)
     sys.stdout.flush()
-    papers_copy = list(papers)
-    while total_tokens > max_tokens and len(papers_copy) > 1:
-        papers_copy = papers_copy[:-1]
-        papers_text = "\n\n".join(
-            [
-                f"PMID: {p.get('PMID','')}\nTitle: {p.get('Title','')}\nAuthors: {p.get('Authors','')}\n"
-                f"Journal: {p.get('Journal','')}\nYear: {p.get('Year','')}\n"
-                + (f"Full Text: {p.get('FullText','')}" if p.get('FullText') else f"Abstract: {p.get('Abstract','')}")
-                + f"\nDOI: {p.get('DOI','')}"
-                for p in papers_copy
-            ]
-        )
-        # Update the papers section in the prompt while preserving structure
-        # The prompt uses "=== SUMMARY STRUCTURE ===" not "=== SUMMARY REQUIREMENTS ==="
-        if "=== RESEARCH PAPERS TO ANALYZE ===" in prompt:
-            parts = prompt.split("=== RESEARCH PAPERS TO ANALYZE ===", 1)
-            if len(parts) == 2:
-                prefix, rest = parts
-                # Try to find where the papers section ends (before SUMMARY STRUCTURE)
-                rest_parts = rest.split("\n\n=== SUMMARY STRUCTURE ===", 1)
-                if len(rest_parts) == 2:
-                    rest_after_list = rest_parts[1]
-                    prompt = f"{prefix}=== RESEARCH PAPERS TO ANALYZE ===\n{papers_text}\n\n=== SUMMARY STRUCTURE ==={rest_after_list}"
-                else:
-                    # Fallback if structure is different - just replace the papers section
-                    prompt = f"{prefix}=== RESEARCH PAPERS TO ANALYZE ===\n{papers_text}\n\n{rest}"
-            else:
-                # Fallback if split failed - rebuild prompt
-                prompt_prefix = prompt.split("=== RESEARCH PAPERS TO ANALYZE ===")[0] if "=== RESEARCH PAPERS TO ANALYZE ===" in prompt else prompt.split("\n\n")[0] if "\n\n" in prompt else ""
-                prompt = f"{prompt_prefix}\n\n=== RESEARCH PAPERS TO ANALYZE ===\n{papers_text}\n\n=== SUMMARY STRUCTURE ===\nYour summary MUST follow this structure:\n\n1. **General Overview** (use UniProt information)\n2. **Key Findings** (from papers)\n3. **Disease Associations** (from papers)\n4. **Mechanisms** (from papers)\n5. **Therapeutic Implications** (from papers)\n"
-        else:
-            # Fallback for old format
-            parts = prompt.split("Papers to analyze:", 1)
-            if len(parts) == 2:
-                prefix, rest = parts
-                rest_parts = rest.split("\n\nCreate a summary", 1)
-                if len(rest_parts) == 2:
-                    rest_after_list = rest_parts[1]
-                    prompt = f"{prefix}Papers to analyze:\n{papers_text}\n\nCreate a summary{rest_after_list}"
-                else:
-                    prompt = f"{prefix}Papers to analyze:\n{papers_text}\n\n{rest}"
-            else:
-                # Fallback if split failed - rebuild prompt
-                prompt = f"You are a research assistant specialized in neuroscience.\nAnalyze the research papers below about {proteins_text} and create a comprehensive summary.\n\n=== RESEARCH PAPERS TO ANALYZE ===\n{papers_text}\n\n=== SUMMARY STRUCTURE ===\nYour summary MUST follow this structure:\n\n1. **General Overview**\n2. **Key Findings**\n3. **Disease Associations**\n4. **Mechanisms**\n5. **Therapeutic Implications**\n"
-        total_tokens = count_tokens(prompt)
-    
+
     # Check for OpenAI API key in environment - only use OpenAI if key is actually present
     openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
     key_present = bool(openai_key)
@@ -236,7 +273,7 @@ Start with the General Overview section using UniProt information, then proceed 
                 response = client.chat.completions.create(
                     model=model_name,
                     messages=[
-                        {"role": "system", "content": "You are a research assistant specialized in neuroscience. Summarize papers with clear citations. Only cite papers for information that comes from those papers. Do NOT cite papers for general protein function information from UniProt - that is background context only."},
+                        {"role": "system", "content": "You are a research assistant specialized in neuroscience. Write summaries in clean GitHub-flavored Markdown with ## section headings and bullet lists. Only cite papers for information from those papers. Use UniProt only for the General Overview and cite it once. Do not italicize whole paragraphs."},
                         {"role": "user", "content": prompt},
                     ],
                     temperature=1,
@@ -326,15 +363,22 @@ Start with the General Overview section using UniProt information, then proceed 
     else:
         print("[DEBUG] summarize_papers_with_llm: No OpenAI key found, skipping OpenAI")
     
-    # Use Google/Gemma models if no OpenAI key or OpenAI failed
-    # Default Google API key (fallback if not set in environment)
-    #deleted api key
-    google_key = os.environ.get("GOOGLE_API_KEY", DEFAULT_GOOGLE_API_KEY).strip() # type: ignore
+    # Use Google Gemini model if no OpenAI key or OpenAI failed.
+    google_key = os.environ.get("GOOGLE_API_KEY", "").strip() # type: ignore
     print(f"[DEBUG] summarize_papers_with_llm: Google key check - present: {bool(google_key)}, length: {len(google_key) if google_key else 0}")
     if google_key:
-        print("[DEBUG] summarize_papers_with_llm: Using Google Gemma models for summarization")
-        log.info("summarize_papers_with_llm: Using Google Gemma models for summarization")
-        for model in ["gemma-3-4b-it", "gemma-3-12b-it"]:
+        print("[DEBUG] summarize_papers_with_llm: Using Google Gemini model for summarization")
+        log.info("summarize_papers_with_llm: Using Google Gemini model for summarization")
+        primary = (os.environ.get("GEMINI_SUMMARY_MODEL") or "gemini-2.5-pro").strip() or "gemini-2.5-pro"
+        fallback = (os.environ.get("GEMINI_SUMMARY_FALLBACK_MODEL") or "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+        models = [primary]
+        if fallback and fallback != primary:
+            models.append(fallback)
+        log.info(
+            "summarize_papers_with_llm: Gemini models (one HTTP call each, no 429 retries): %s",
+            models,
+        )
+        for model in models:
             print(f"[DEBUG] summarize_papers_with_llm: Trying model: {model}")
             text_rest = generate_with_gemini_rest(prompt, model, google_key)
             if text_rest:

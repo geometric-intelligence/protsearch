@@ -5,7 +5,8 @@ import { Inter } from "next/font/google";
 
 export const metadata: Metadata = {
   title: "ProtSearch",
-  description: "Protein Literature Research Assistant",
+  description:
+    "AI-assisted protein literature search — find PubMed papers and get cited summaries for your proteins.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
@@ -19,8 +20,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={`${inter.variable} h-full`}>
+      <body className="min-h-full font-sans antialiased">{children}</body>
     </html>
   );
 }

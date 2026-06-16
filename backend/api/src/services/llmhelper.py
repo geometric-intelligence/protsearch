@@ -1,5 +1,12 @@
 from typing import Optional, Dict, Any
-import os, time, logging, requests, tiktoken
+import os, time, logging, requests
+
+try:
+    import tiktoken  # type: ignore
+    _HAS_TIKTOKEN = True
+except Exception:
+    tiktoken = None  # type: ignore
+    _HAS_TIKTOKEN = False
 
 log = logging.getLogger("protsearch")
 
@@ -32,17 +39,29 @@ def setup_openai() -> Optional[object]:
         log.warning(f"Failed to init OpenAI client: {e}")
         return None
 
-def generate_with_gemini_rest(prompt: str, model_name: str, api_key: str, timeout: int = 120, max_retries: int = 4) -> str:
+def generate_with_gemini_rest(
+    prompt: str,
+    model_name: str,
+    api_key: str,
+    timeout: int = 120,
+    max_retries: int = 1,
+) -> str:
+    """One generateContent POST per attempt. Never retries 429 (avoids quota storms)."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     payload: Dict[str, Any] = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
     backoff = 0.5
     for attempt in range(max_retries):
         try:
             resp = requests.post(url, json=payload, timeout=timeout)
-            if resp.status_code in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
-                time.sleep(backoff); backoff *= 2; continue
+            if resp.status_code == 429:
+                log.warning("Gemini REST 429 for model %s; not retrying.", model_name)
+                return ""
+            if resp.status_code in (500, 502, 503, 504) and attempt < max_retries - 1:
+                time.sleep(backoff)
+                backoff *= 2
+                continue
             if resp.status_code == 404:
-                log.error(f"Gemini REST 404 (model): {url}")
+                log.error("Gemini REST 404 (model): %s", url)
                 return ""
             resp.raise_for_status()
             data = resp.json()
@@ -55,12 +74,16 @@ def generate_with_gemini_rest(prompt: str, model_name: str, api_key: str, timeou
             return ""
         except requests.RequestException as e:
             if attempt < max_retries - 1:
-                time.sleep(backoff); backoff *= 2; continue
-            log.error(f"Gemini REST failed after retries: {e}")
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            log.error("Gemini REST failed after retries: %s", e)
             return ""
 
 def count_tokens(text: str) -> int:
     try:
+        if not _HAS_TIKTOKEN or tiktoken is None:
+            raise RuntimeError("tiktoken unavailable")
         enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
         return len(enc.encode(text or ""))
     except Exception:

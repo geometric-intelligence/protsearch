@@ -5,11 +5,14 @@ Flask==2.3.3
 flask-cors==4.0.0
 gunicorn==21.2.0
 python-dotenv==1.0.0
-pandas==2.0.3
-tiktoken==0.5.1
+pandas==2.3.3
+# Optional; skipped for Python 3.14 local setup because prebuilt wheels may be unavailable.
+# tiktoken==0.11.0
 PyYAML==6.0.1
 thefuzz==0.22.1
 requests==2.31.0
 pathlib2==2.3.7
 openai>=1.0.0
-https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
+# Optional language model dependency; disabled for local Python 3.14 setup.
+# Install separately if needed:
+# python -m pip install "spacy<3.8" "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl"

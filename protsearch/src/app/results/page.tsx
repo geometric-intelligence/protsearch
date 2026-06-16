@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { BeakerIcon, ArrowLeftIcon, ClipboardIcon, ArrowTopRightOnSquareIcon, ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, ClipboardIcon, ArrowTopRightOnSquareIcon, ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import Link from 'next/link';
 import Cookies from 'js-cookie';
+import PageBackground from "~/components/PageBackground";
+import TopBar from "~/components/TopBar";
 
 export const dynamic = 'force-dynamic';
 
@@ -63,37 +65,82 @@ const PaperList = ({ papers, expandedAbstracts, toggleAbstract, copyToClipboard,
   copyToClipboard: (text: string, label: string) => void;
   copiedText: string | null;
 }) => {
-  if (papers.length === 0) return <div className="text-center py-12 text-gray-500">Searching for papers...</div>;
+  if (papers.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-white py-16 text-center">
+        <div className="mb-4 h-9 w-9 animate-spin rounded-full border-2 border-brand/20 border-t-brand" />
+        <p className="text-sm font-medium text-gray-700">Finding papers...</p>
+        <p className="mt-1 text-xs text-muted">This may take a moment</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
-      {papers.map(paper => (
-        <div key={paper.pmid} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <h3 className="font-semibold text-lg text-gray-900">{cleanText(paper.title)}</h3>
-          <p className="text-sm text-gray-600 my-1">{paper.authors}</p>
-          <div className="flex flex-wrap items-center text-xs text-gray-500 gap-x-3 gap-y-1 mb-2">
-            <span>{paper.journal} ({paper.year})</span>
-            {paper.doi && <span>DOI: <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{paper.doi}</a></span>}
+      {papers.map((paper) => (
+        <article
+          key={paper.pmid}
+          className="card-hover rounded-xl border border-border bg-white p-5"
+        >
+          <h3 className="text-base font-semibold leading-snug text-gray-900">
+            {cleanText(paper.title)}
+          </h3>
+          <p className="my-2 text-sm text-gray-600">{paper.authors}</p>
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+            <span className="rounded-full bg-brand-muted/80 px-2.5 py-0.5 font-medium text-brand">
+              {paper.journal} ({paper.year})
+            </span>
+            {paper.doi && (
+              <a
+                href={`https://doi.org/${paper.doi}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline"
+              >
+                DOI: {paper.doi}
+              </a>
+            )}
           </div>
           {paper.abstract && paper.abstract.trim() ? (
-            <p className={`text-sm text-gray-700 transition-all duration-300 ${expandedAbstracts[paper.pmid] ? 'max-h-full' : 'line-clamp-3'}`}>
+            <p
+              className={`text-sm leading-relaxed text-gray-700 transition-all duration-300 ${
+                expandedAbstracts[paper.pmid] ? "max-h-full" : "line-clamp-3"
+              }`}
+            >
               {cleanText(paper.abstract)}
             </p>
           ) : (
-            <p className="text-sm text-gray-500 italic">No abstract available</p>
+            <p className="text-sm italic text-muted">No abstract available</p>
           )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => toggleAbstract(paper.pmid)} className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center">
-              {expandedAbstracts[paper.pmid] ? <ChevronUpIcon className="h-3 w-3 mr-1" /> : <ChevronDownIcon className="h-3 w-3 mr-1" />}
-              {expandedAbstracts[paper.pmid] ? 'Show Less' : 'Show More'}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              onClick={() => toggleAbstract(paper.pmid)}
+              className="flex items-center rounded-full bg-brand-muted/60 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand-muted"
+            >
+              {expandedAbstracts[paper.pmid] ? (
+                <ChevronUpIcon className="mr-1 h-3.5 w-3.5" />
+              ) : (
+                <ChevronDownIcon className="mr-1 h-3.5 w-3.5" />
+              )}
+              {expandedAbstracts[paper.pmid] ? "Show less" : "Show more"}
             </button>
-            <a href={paper.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center">
-              <ArrowTopRightOnSquareIcon className="h-3 w-3 mr-1" />PubMed
+            <a
+              href={paper.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center rounded-full bg-brand-muted/60 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand-muted"
+            >
+              <ArrowTopRightOnSquareIcon className="mr-1 h-3.5 w-3.5" />
+              PubMed
             </a>
-            <button onClick={() => copyToClipboard(paper.abstract, `abstract-${paper.pmid}`)} className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center">
-              <ClipboardIcon className="h-3 w-3 mr-1" />{copiedText === `abstract-${paper.pmid}` ? 'Copied!' : 'Copy Abstract'}
+            <button
+              onClick={() => copyToClipboard(paper.abstract, `abstract-${paper.pmid}`)}
+              className="flex items-center rounded-full bg-brand-muted/60 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand-muted"
+            >
+              <ClipboardIcon className="mr-1 h-3.5 w-3.5" />
+              {copiedText === `abstract-${paper.pmid}` ? "Copied!" : "Copy abstract"}
             </button>
           </div>
-        </div>
+        </article>
       ))}
     </div>
   );
@@ -115,7 +162,7 @@ function cleanText(s: string): string {
   return withoutTags;
 }
 
-// Summary formatting (unchanged from your current file)
+// Summary markdown rendering (headers, lists, bold/italic)
 function escapeHtml(s: string): string {
   return (s ?? '')
     .replace(/&/g, '&amp;')
@@ -125,31 +172,24 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-// Protect code spans then replace paired markers exactly
 function formatInlineExactMarkers(input: string): string {
   const CODE_PH = '\u0000CODE\u0000';
   const codes: string[] = [];
   let out = input ?? '';
 
-  // Protect code: store HTML-escaped code content
   out = out.replace(/`([^`]+)`/g, (_m, code) => {
-    const idx = codes.push(`<code>${escapeHtml(code)}</code>`) - 1;
+    const idx = codes.push(`<code class="rounded bg-gray-100 px-1 py-0.5 text-sm">${escapeHtml(code)}</code>`) - 1;
     return `${CODE_PH}${idx}${CODE_PH}`;
   });
 
-  // Bold pass: scan and alternate opening/closing tags on '**'
   out = replacePairedMarkers(out, '**', 'strong');
-
-  // Italic pass: scan and alternate on single '*', skipping '**'
   out = replacePairedMarkers(out, '*', 'em');
 
-  // Restore code placeholders
   out = out.replace(new RegExp(`${CODE_PH}(\\d+)${CODE_PH}`, 'g'), (_m, i) => codes[Number(i)] || '');
 
   return out;
 }
 
-// Marker scanner that preserves text and toggles tags for each pair
 function replacePairedMarkers(text: string, marker: '*' | '**', tag: 'strong' | 'em'): string {
   let result = '';
   let i = 0;
@@ -190,24 +230,123 @@ function replacePairedMarkers(text: string, marker: '*' | '**', tag: 'strong' | 
   return result;
 }
 
-// Render summary preserving line breaks
-function FormattedSummary({ text }: { text: string }) {
-  const raw = text ?? '';
-  const paragraphs = raw.split(/\r?\n\r?\n/);
+function renderInlineHtml(text: string): string {
+  return formatInlineExactMarkers(escapeHtml(text));
+}
 
-  const renderParaHtml = (para: string) => {
-    const withMarkers = formatInlineExactMarkers(escapeHtml(para));
-    const withBr = withMarkers.replace(/\r?\n/g, '<br>');
-    return withBr;
-  };
-
+function isBlockStart(line: string): boolean {
+  const trimmed = line.trim();
   return (
-    <div className="prose max-w-none">
-      {paragraphs.map((p, idx) => (
-        <p key={idx} dangerouslySetInnerHTML={{ __html: renderParaHtml(p) }} />
-      ))}
-    </div>
+    /^#{1,3}\s/.test(trimmed) ||
+    /^[-*]\s/.test(trimmed) ||
+    /^\d+\.\s/.test(trimmed)
   );
+}
+
+function FormattedSummary({ text }: { text: string }) {
+  const lines = (text ?? '').split(/\r?\n/);
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+  let key = 0;
+
+  while (i < lines.length) {
+    const line = lines[i] ?? '';
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('### ')) {
+      elements.push(
+        <h3
+          key={key++}
+          className="mt-4 mb-2 text-base font-semibold text-gray-900"
+          dangerouslySetInnerHTML={{ __html: renderInlineHtml(trimmed.slice(4)) }}
+        />
+      );
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      elements.push(
+        <h2
+          key={key++}
+          className="mt-6 mb-3 border-b border-border pb-1 text-lg font-semibold text-gray-900 first:mt-0"
+          dangerouslySetInnerHTML={{ __html: renderInlineHtml(trimmed.slice(3)) }}
+        />
+      );
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('# ')) {
+      elements.push(
+        <h1
+          key={key++}
+          className="mb-4 text-xl font-bold text-gray-900"
+          dangerouslySetInnerHTML={{ __html: renderInlineHtml(trimmed.slice(2)) }}
+        />
+      );
+      i += 1;
+      continue;
+    }
+
+    if (/^[-*]\s/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length) {
+        const current = (lines[i] ?? '').trim();
+        if (!/^[-*]\s/.test(current)) break;
+        items.push(current.replace(/^[-*]\s+/, ''));
+        i += 1;
+      }
+      elements.push(
+        <ul key={key++} className="my-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-gray-700">
+          {items.map((item, idx) => (
+            <li key={idx} dangerouslySetInnerHTML={{ __html: renderInlineHtml(item) }} />
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length) {
+        const current = (lines[i] ?? '').trim();
+        if (!/^\d+\.\s/.test(current)) break;
+        items.push(current.replace(/^\d+\.\s+/, ''));
+        i += 1;
+      }
+      elements.push(
+        <ol key={key++} className="summary-ref-list my-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed text-gray-700">
+          {items.map((item, idx) => (
+            <li key={idx} className="pl-1" dangerouslySetInnerHTML={{ __html: renderInlineHtml(item) }} />
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    const paraLines: string[] = [];
+    while (i < lines.length) {
+      const current = lines[i] ?? '';
+      if (!current.trim() || isBlockStart(current)) break;
+      paraLines.push(current.trim());
+      i += 1;
+    }
+    elements.push(
+      <p
+        key={key++}
+        className="my-3 text-sm leading-relaxed text-gray-700"
+        dangerouslySetInnerHTML={{ __html: renderInlineHtml(paraLines.join(' ')) }}
+      />
+    );
+  }
+
+  return <div className="summary-content max-w-none">{elements}</div>;
 }
 
 const SummaryView = ({ summary, loading, error, copyToClipboard }: {
@@ -216,13 +355,30 @@ const SummaryView = ({ summary, loading, error, copyToClipboard }: {
   error: string | null;
   copyToClipboard: (text: string, label: string) => void;
 }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <div className="flex justify-between items-center mb-4">
-      <h2 className="text-xl font-semibold text-gray-800">AI Research Summary</h2>
-      {summary && <button onClick={() => copyToClipboard(summary, 'summary')} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center"><ClipboardIcon className="h-4 w-4 mr-1" />Copy</button>}
+  <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+    <div className="mb-5 flex items-center justify-between">
+      <h2 className="text-lg font-semibold text-gray-900">AI Research Summary</h2>
+      {summary && (
+        <button
+          onClick={() => copyToClipboard(summary, "summary")}
+          className="flex items-center rounded-full bg-brand-muted/70 px-3 py-1.5 text-sm font-medium text-brand transition-colors hover:bg-brand-muted"
+        >
+          <ClipboardIcon className="mr-1 h-4 w-4" />
+          Copy
+        </button>
+      )}
     </div>
-    {loading && <div className="text-center py-12 text-gray-600">Generating AI summary...</div>}
-    {error && <div className="bg-red-50 text-red-700 p-3 rounded-md">{error}</div>}
+    {loading && (
+      <div className="flex flex-col items-center py-16 text-center">
+        <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+        <p className="text-sm font-medium text-gray-700">Crafting your summary...</p>
+      </div>
+    )}
+    {error && (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {error}
+      </div>
+    )}
     {summary && <FormattedSummary text={summary} />}
   </div>
 );
@@ -465,10 +621,14 @@ function ResultsContent() {
   }
   if (!results) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-10 w-10 border-4 border-indigo-600 border-t-transparent rounded-full"></div>
-        {SHOW_DEBUG && <DebugPanel debugMessages={[]} onReset={handleReset} />}
-      </div>
+      <PageBackground>
+        <TopBar />
+        <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+          <p className="text-sm text-muted">Loading your research...</p>
+          {SHOW_DEBUG && <DebugPanel debugMessages={[]} onReset={handleReset} />}
+        </div>
+      </PageBackground>
     );
   }
 
@@ -476,68 +636,104 @@ function ResultsContent() {
   const summary = results.mode === 'together' ? results.summary : results.results?.[activeProteinIndex]?.summary;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <BeakerIcon className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-2xl font-bold text-gray-800">ProtSearch</h1>
-            </div>
-            <Link href="/" className="text-sm font-medium text-gray-600 hover:text-indigo-600 flex items-center">
-              <ArrowLeftIcon className="h-4 w-4 mr-1" /> New Search
-            </Link>
-          </div>
-        </div>
-      </header>
-      <main className="container mx-auto px-4 py-6">
-        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          {results.mode === 'separate' && results.results && (
-            <div className="flex-grow overflow-x-auto whitespace-nowrap pb-2">
-              {results.results.map((result, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveProteinIndex(index)}
-                  className={`px-4 py-2 mx-1 text-sm font-medium rounded-lg transition-colors ${index === activeProteinIndex ? 'bg-indigo-600 text-white shadow' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'}`}
-                >
-                  {result.protein} ({result.papers.length})
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="inline-flex rounded-lg shadow-sm self-center">
+    <PageBackground>
+      <TopBar />
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        {results.proteins && results.proteins.length > 0 && (
+          <p className="mb-6 text-sm text-muted animate-fade-up">
+            Researching{" "}
+            <span className="font-medium text-gray-800">
+              {results.proteins.join(", ")}
+            </span>
+          </p>
+        )}
+
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-up-delay-1">
+          <Link
+            href="/"
+            className="card-hover inline-flex w-fit items-center rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-gray-700"
+          >
+            <ArrowLeftIcon className="mr-2 h-4 w-4" />
+            New search
+          </Link>
+
+          <div className="inline-flex rounded-full border border-border bg-white p-1 shadow-sm">
             <button
-              onClick={() => setActiveTab('papers')}
-              className={`px-4 py-2 text-sm font-medium border border-gray-300 rounded-l-lg ${activeTab === 'papers' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
+              onClick={() => setActiveTab("papers")}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "papers"
+                  ? "bg-brand text-white"
+                  : "text-muted hover:text-gray-800"
+              }`}
             >
               Papers ({papers.length})
             </button>
             <button
-              onClick={() => setActiveTab('summary')}
-              className={`px-4 py-2 text-sm font-medium border border-gray-300 rounded-r-lg flex items-center ${activeTab === 'summary' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
+              onClick={() => setActiveTab("summary")}
+              className={`flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "summary"
+                  ? "bg-brand text-white"
+                  : "text-muted hover:text-gray-800"
+              }`}
             >
-              AI Summary {results.summaryLoading && <span className="ml-2 w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>}
+              AI Summary
+              {results.summaryLoading && (
+                <span className="ml-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              )}
             </button>
           </div>
         </div>
-        {activeTab === 'papers'
-          ? <PaperList papers={papers} expandedAbstracts={expandedAbstracts} toggleAbstract={toggleAbstract} copyToClipboard={copyToClipboard} copiedText={copiedText} />
-          : <SummaryView summary={summary || null} loading={results.summaryLoading} error={results.summaryError} copyToClipboard={copyToClipboard} />}
+
+        {results.mode === "separate" && results.results && (
+          <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+            {results.results.map((result, index) => (
+              <button
+                key={index}
+                onClick={() => setActiveProteinIndex(index)}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  index === activeProteinIndex
+                    ? "bg-brand text-white"
+                    : "border border-border bg-white text-gray-700 hover:bg-brand-muted"
+                }`}
+              >
+                {result.protein} ({result.papers.length})
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'papers' ? (
+          <PaperList
+            papers={papers}
+            expandedAbstracts={expandedAbstracts}
+            toggleAbstract={toggleAbstract}
+            copyToClipboard={copyToClipboard}
+            copiedText={copiedText}
+          />
+        ) : (
+          <SummaryView
+            summary={summary || null}
+            loading={results.summaryLoading}
+            error={results.summaryError}
+            copyToClipboard={copyToClipboard}
+          />
+        )}
         {SHOW_DEBUG && <DebugPanel debugMessages={debugMessages} onReset={handleReset} />}
-      </main>
-    </div>
+      </div>
+    </PageBackground>
   );
 }
 
 export default function ResultsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin h-10 w-10 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading results...</p>
+      <PageBackground>
+        <TopBar />
+        <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-3">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+          <p className="text-sm text-muted">Loading results...</p>
         </div>
-      </div>
+      </PageBackground>
     }>
       <ResultsContent />
     </Suspense>
